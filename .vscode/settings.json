@@ -1,0 +1,3 @@
+{
+    "azureML.defaultWorkspaceId": "/subscriptions/7e48a1e8-8d3e-4e00-8bc0-098c43f5ace7/resourceGroups/rg-mlops-demo-dev/providers/Microsoft.MachineLearningServices/workspaces/ws-demo"
+}

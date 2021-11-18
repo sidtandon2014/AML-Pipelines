@@ -1,0 +1,214 @@
+{
+    "name": "Execute ML Pipeline Using Web activity",
+    "properties": {
+        "activities": [
+            {
+                "name": "GetBearerToken",
+                "type": "WebActivity",
+                "dependsOn": [],
+                "policy": {
+                    "timeout": "7.00:00:00",
+                    "retry": 0,
+                    "retryIntervalInSeconds": 30,
+                    "secureOutput": false,
+                    "secureInput": false
+                },
+                "userProperties": [],
+                "typeProperties": {
+                    "url": "https://login.microsoftonline.com/72f988bf-86f1-41af-91ab-2d7cd011db47/oauth2/token",
+                    "connectVia": {
+                        "referenceName": "AutoResolveIntegrationRuntime",
+                        "type": "IntegrationRuntimeReference"
+                    },
+                    "method": "POST",
+                    "headers": {
+                        "Content-Type": "application/x-www-form-urlencoded"
+                    },
+                    "body": "grant_type=client_credentials&client_id=2a81532b-016b-4c0e-aa43-bd9b97fbdaba&resource=https://management.core.windows.net/&client_secret=NrL7Q~-CfUgOqeqJtC86ARcf2JSl2vBrHlTI5"
+                }
+            },
+            {
+                "name": "SaveDatasetFromDatastore",
+                "type": "WebActivity",
+                "dependsOn": [
+                    {
+                        "activity": "GetBearerToken",
+                        "dependencyConditions": [
+                            "Succeeded"
+                        ]
+                    }
+                ],
+                "policy": {
+                    "timeout": "7.00:00:00",
+                    "retry": 0,
+                    "retryIntervalInSeconds": 30,
+                    "secureOutput": false,
+                    "secureInput": false
+                },
+                "userProperties": [],
+                "typeProperties": {
+                    "url": "https://eastus.experiments.azureml.net/dataset/v1.0/subscriptions/7e48a1e8-8d3e-4e00-8bc0-098c43f5ace7/resourceGroups/rg-mlops-demo-dev/providers/Microsoft.MachineLearningServices/workspaces/ws-demo/saveddatasets/from-data-path",
+                    "connectVia": {
+                        "referenceName": "AutoResolveIntegrationRuntime",
+                        "type": "IntegrationRuntimeReference"
+                    },
+                    "method": "POST",
+                    "headers": {
+                        "Authorization": {
+                            "value": "@concat('Bearer ', activity('GetBearerToken').output.access_token)",
+                            "type": "Expression"
+                        }
+                    },
+                    "body": {
+                        "DatastoreName": "dstore_blob_diabetes",
+                        "RelativePath": "/diabetes_inference2"
+                    }
+                }
+            },
+            {
+                "name": "TriggerAzureML Pipeline",
+                "type": "WebActivity",
+                "dependsOn": [
+                    {
+                        "activity": "SaveDatasetFromDatastore",
+                        "dependencyConditions": [
+                            "Succeeded"
+                        ]
+                    }
+                ],
+                "policy": {
+                    "timeout": "7.00:00:00",
+                    "retry": 0,
+                    "retryIntervalInSeconds": 30,
+                    "secureOutput": false,
+                    "secureInput": false
+                },
+                "userProperties": [],
+                "typeProperties": {
+                    "url": "https://eastus.api.azureml.ms/pipelines/v1.0/subscriptions/7e48a1e8-8d3e-4e00-8bc0-098c43f5ace7/resourceGroups/rg-mlops-demo-dev/providers/Microsoft.MachineLearningServices/workspaces/ws-demo/PipelineRuns/PipelineSubmit/6f8789b8-5adf-40fa-a671-7562624ad479",
+                    "connectVia": {
+                        "referenceName": "AutoResolveIntegrationRuntime",
+                        "type": "IntegrationRuntimeReference"
+                    },
+                    "method": "POST",
+                    "headers": {
+                        "Authorization": {
+                            "value": "@concat('Bearer ', activity('GetBearerToken').output.access_token)",
+                            "type": "Expression"
+                        }
+                    },
+                    "body": {
+                        "ExperimentName": "Diabetes_Inference_Synapse",
+                        "RunSource": "SDK",
+                        "dataSetDefinitionValueAssignments": {
+                            "diabetes_param": {
+                                "savedDataSetReference": {
+                                    "Id": "@activity('SaveDatasetFromDatastore').output.id"
+                                }
+                            }
+                        },
+                        "ParameterAssignments": {
+                            "batch_size_param": "1",
+                            "process_count_param": "1"
+                        }
+                    }
+                }
+            },
+            {
+                "name": "Until1",
+                "type": "Until",
+                "dependsOn": [
+                    {
+                        "activity": "TriggerAzureML Pipeline",
+                        "dependencyConditions": [
+                            "Succeeded"
+                        ]
+                    }
+                ],
+                "userProperties": [],
+                "typeProperties": {
+                    "expression": {
+                        "value": "@variables('IsPipelineCompleted')",
+                        "type": "Expression"
+                    },
+                    "activities": [
+                        {
+                            "name": "CheckPipelineStatus",
+                            "type": "WebActivity",
+                            "dependsOn": [],
+                            "policy": {
+                                "timeout": "7.00:00:00",
+                                "retry": 0,
+                                "retryIntervalInSeconds": 30,
+                                "secureOutput": false,
+                                "secureInput": false
+                            },
+                            "userProperties": [],
+                            "typeProperties": {
+                                "url": {
+                                    "value": "@concat('https://eastus.experiments.azureml.net/history/v1.0/subscriptions/7e48a1e8-8d3e-4e00-8bc0-098c43f5ace7/resourceGroups/rg-mlops-demo-dev/providers/Microsoft.MachineLearningServices/workspaces/ws-demo/experiments/Diabetes_Inference_Synapse/runs/', activity('TriggerAzureML Pipeline').output.PipelineRunId)",
+                                    "type": "Expression"
+                                },
+                                "connectVia": {
+                                    "referenceName": "AutoResolveIntegrationRuntime",
+                                    "type": "IntegrationRuntimeReference"
+                                },
+                                "method": "GET",
+                                "headers": {
+                                    "Authorization": {
+                                        "value": "@concat('Bearer ', activity('GetBearerToken').output.access_token)",
+                                        "type": "Expression"
+                                    }
+                                }
+                            }
+                        },
+                        {
+                            "name": "Set variable1",
+                            "type": "SetVariable",
+                            "dependsOn": [
+                                {
+                                    "activity": "CheckPipelineStatus",
+                                    "dependencyConditions": [
+                                        "Succeeded"
+                                    ]
+                                }
+                            ],
+                            "userProperties": [],
+                            "typeProperties": {
+                                "variableName": "IsPipelineCompleted",
+                                "value": {
+                                    "value": "@not(equals(activity('CheckPipelineStatus').output.status, 'Running'))",
+                                    "type": "Expression"
+                                }
+                            }
+                        },
+                        {
+                            "name": "Wait1",
+                            "type": "Wait",
+                            "dependsOn": [
+                                {
+                                    "activity": "Set variable1",
+                                    "dependencyConditions": [
+                                        "Succeeded"
+                                    ]
+                                }
+                            ],
+                            "userProperties": [],
+                            "typeProperties": {
+                                "waitTimeInSeconds": 60
+                            }
+                        }
+                    ],
+                    "timeout": "7.00:00:00"
+                }
+            }
+        ],
+        "variables": {
+            "IsPipelineCompleted": {
+                "type": "Boolean",
+                "defaultValue": false
+            }
+        },
+        "annotations": []
+    }
+}
