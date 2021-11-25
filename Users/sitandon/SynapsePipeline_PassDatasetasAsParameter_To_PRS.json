@@ -24,7 +24,7 @@
                     "headers": {
                         "Content-Type": "application/x-www-form-urlencoded"
                     },
-                    "body": "grant_type=client_credentials&client_id=2a81532b-016b-4c0e-aa43-bd9b97fbdaba&resource=https://management.core.windows.net/&client_secret=NrL7Q~-CfUgOqeqJtC86ARcf2JSl2vBrHlTI5"
+                    "body": "grant_type=client_credentials&client_id={client_id}&resource=https://management.core.windows.net/&client_secret={client_secret}"
                 }
             },
             {
